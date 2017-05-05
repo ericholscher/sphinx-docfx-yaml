@@ -172,7 +172,7 @@ class PythonTests(unittest.TestCase):
                             'The Foo instance is destructed'
                         )
                         self.assertEqual(
-                            item['seealso'],
+                            item['seealsoContent'],
                             'See also: Some cool stuff online.'
                         )
 
@@ -186,8 +186,8 @@ class PythonTests(unittest.TestCase):
                 for item in data['items']:
                     if item['uid'] == 'example.nap.Base.ref':
                         self.assertEqual(
-                            item['seealso'],
-                            'See also: Depends on @example.example.Foo'
+                            item['seealsoContent'],
+                            'See also: Depends on @example.example.Foo Relative reference on @example.nap.Base.foo'
                         )
 
     def test_toc(self):
