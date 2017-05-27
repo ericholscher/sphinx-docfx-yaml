@@ -65,6 +65,8 @@ def build_init(app):
     app.env.docfx_info_field_data = {}
     # This stores signature for functions and methods
     app.env.docfx_signature_funcs_methods = {}
+    # This store the uid-module mapping info
+    app.env.docfx_info_uid_modules = {}
 
     remote = getoutput('git remote -v')
 
@@ -276,6 +278,8 @@ def process_docstring(app, _type, name, obj, options, lines):
     insert_children_on_module(app, _type, datam)
     insert_children_on_class(app, _type, datam)
 
+    app.env.docfx_info_uid_modules[datam['uid']] = _type
+
 
 def process_signature(app, _type, name, obj, options, signature, return_annotation):
     if signature:
@@ -329,6 +333,27 @@ def insert_children_on_module(app, _type, datam):
             obj['references'].append(_create_reference(datam, parent=obj['uid']))
             break
 
+    if datam[MODULE].count('.') >= 1:
+        parent_module_name = '.'.join(datam[MODULE].split('.')[:-1])
+
+        if parent_module_name not in app.env.docfx_yaml_modules:
+            return
+
+        insert_module = app.env.docfx_yaml_modules[parent_module_name]
+        #print('---------- found parent module %s' % insert_module)
+
+        # Add module to parent module node
+        for obj in insert_module:
+            #print('will handle obj %s' % obj)
+            if _type in [MODULE] and \
+                    obj['type'] == MODULE and \
+                    obj[MODULE] == parent_module_name:
+                obj['children'].append(datam['uid'])
+                obj['references'].append(_create_reference(datam, parent=obj['uid']))
+
+                #print('---------- after parse children: %s, obj.references %s' % (obj['children'], obj['references']))
+                break
+
 
 def insert_children_on_class(app, _type, datam):
     """
@@ -367,6 +392,21 @@ def build_finished(app, exception):
                     return found_module
 
         return None;
+
+    def convert_module_to_packages_if_need(obj):
+        has_sub_module = False
+        #print(bcolors.OKGREEN + 'convert_module_to_packages_if_need obj-children: %s' % obj['children'] + bcolors.ENDC)
+        
+        for child_uid in obj['children']:
+            if child_uid in app.env.docfx_info_uid_modules:
+                child_uid_type = app.env.docfx_info_uid_modules[child_uid]
+
+                if child_uid_type == MODULE:
+                    #print(bcolors.OKGREEN + 'convert_module_to_packages_if_need child_uid: %s, and child_uid_type: %s' % (child_uid, child_uid_type) + bcolors.ENDC)
+                    has_sub_module = True
+                    obj['type'] = 'package'
+                    print(bcolors.OKGREEN + 'change obj %s type to package' % obj['module'] + bcolors.ENDC)
+                    return
 
 
     normalized_outdir = os.path.normpath(os.path.join(
@@ -424,8 +464,18 @@ def build_finished(app, exception):
                     if 'example' in obj['syntax'] and obj['syntax']['example']:
                         obj['example'] = obj['syntax'].pop('example')
 
+                    # append 'enum_attribute' to summary
+                    if 'enum_attribute' in obj['syntax'] and obj['syntax']['enum_attribute']:
+                        enum_attribute = obj['syntax'].pop('enum_attribute')
+                        if 'summary' in obj:
+                            obj['summary'] += ('\n\n' + '\n'.join(enum_attribute) + '\n')
+
                 if 'references' in obj:
                     references.extend(obj.pop('references'))
+
+                if obj['type'] == 'module':
+                    # change type to 'package' when this 'module' has sub module
+                    convert_module_to_packages_if_need(obj)
 
             # Output file
             out_file = os.path.join(normalized_outdir, '%s.yml' % filename)
@@ -453,6 +503,7 @@ def build_finished(app, exception):
                     found_node.setdefault('items', []).append({'name': filename, 'href': '%s.yml' % filename})
                 else:
                     print('No parent level module found: {}'.format(parent_level))
+                    toc_yaml.append({'name': filename, 'href': '%s.yml' % filename})
             else:
                 toc_yaml.append({'name': filename, 'href': '%s.yml' % filename})
 
@@ -480,7 +531,7 @@ def missing_reference(app, env, node, contnode):
             module = node['py:module']
 
         #Refactor reftarget to fullname if it is a short name
-        if reftype in [CLASS, REFFUNCTION, REFMETHOD] and not reftarget.startswith(module.split('.')[0]):
+        if reftype in [CLASS, REFFUNCTION, REFMETHOD] and module and not reftarget.startswith(module.split('.')[0]):
             if reftype in [CLASS, REFFUNCTION]:
                 fields = (module, reftarget)
             else:
