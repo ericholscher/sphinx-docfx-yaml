@@ -418,7 +418,7 @@ def build_finished(app, exception):
 
                     # Raise up seealso
                     if 'seealso' in obj['syntax'] and obj['syntax']['seealso']:
-                        obj['seealsoContent'] = obj['syntax'].pop('seealso')
+                        obj['seealsoContent'] = obj['syntax'].pop('seealso')[10:]
 
                     # Raise up example
                     if 'example' in obj['syntax'] and obj['syntax']['example']:

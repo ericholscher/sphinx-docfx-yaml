@@ -1,4 +1,5 @@
 import yaml
+import re
 import os
 import shutil
 from contextlib import contextmanager
@@ -27,6 +28,9 @@ def sphinx_build(test_dir):
 
 class PythonTests(unittest.TestCase):
 
+    def _rm_newlines(self, string):
+        re.sub('\n+', ' ', string).strip()
+
     def test_functional(self):
         """
         A basic functional test
@@ -49,8 +53,8 @@ class PythonTests(unittest.TestCase):
                 for item in data['items']:
                     if item['uid'] == 'example.example':
                         self.assertEqual(
-                            item['summary'],
-                            'Example module\n\nThis is a description'
+                            self._rm_newlines(item['summary']),
+                            'Example module This is a description'
                         )
                         break
                 else:
@@ -108,7 +112,10 @@ class PythonTests(unittest.TestCase):
                 for item in data['items']:
                     if item['uid'] == 'example.example.Foo.method_okay':
                         self.assertEqual(
-                            item['syntax']['return'],
+                            {
+                                'type': item['syntax']['return']['type'],
+                                'description': self._rm_newlines(item['syntax']['return']['description'])
+                            },
                             {'type': ['boolean'], 'description': 'That the method is okay'},
                         )
                         self.assertEqual(
@@ -152,7 +159,7 @@ class PythonTests(unittest.TestCase):
                 for item in data['items']:
                     if item['uid'] == 'example.example.Foo.method_markdown':
                         self.assertEqual(
-                            item['summary'],
+                            self._rm_newlines(item['summary']),
                             'Check out our '
                             '[site](http://sphinx-docfx-yaml.readthedocs.io/en/latest/)'
                             ' for more info.',
@@ -168,7 +175,7 @@ class PythonTests(unittest.TestCase):
                 for item in data['items']:
                     if item['uid'] == 'example.nap.Base.foo':
                         self.assertEqual(
-                            item['syntax']['parameters'][1]['description'],
+                            self._rm_newlines(item['syntax']['parameters'][1]['description']),
                             'The Foo instance is destructed'
                         )
                         self.assertEqual(
@@ -214,12 +221,12 @@ class PythonTests(unittest.TestCase):
                 data = yaml.safe_load(yml_file)
                 for item in data['items']:
                     if item['uid'] == 'example.nap.Base.ref':
-                        self.assertEqual(
-                            item['example'].split('\n')[2],
-                            """>>> print('docblock 1')"""
+                        self.assertIn(
+                            """>>> print('docblock 1')""",
+                            item['example'].split('\n')
                         )
-                        self.assertEqual(
-                            item['example'].split('\n')[7],
-                            """>>> print('docblock 2')"""
+                        self.assertIn(
+                            """>>> print('docblock 2')""",
+                            item['example'].split('\n')
                         )
 
