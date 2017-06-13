@@ -123,7 +123,7 @@ class PythonTests(unittest.TestCase):
                             'None',
                         )
                         self.assertEqual(
-                            item['syntax']['parameters'][1]['description'],
+                            self._rm_newlines(item['syntax']['parameters'][1]['description']),
                             'The foo param',
                         )
                         self.assertEqual(
@@ -179,7 +179,7 @@ class PythonTests(unittest.TestCase):
                             'The Foo instance is destructed'
                         )
                         self.assertEqual(
-                            item['seealsoContent'],
+                            self._rm_newlines(item['seealsoContent']),
                             'Some cool stuff online.'
                         )
 
@@ -193,7 +193,7 @@ class PythonTests(unittest.TestCase):
                 for item in data['items']:
                     if item['uid'] == 'example.nap.Base.ref':
                         self.assertEqual(
-                            item['seealsoContent'],
+                            self._rm_newlines(item['seealsoContent']),
                             'Depends on @example.example.Foo Relative reference on @example.nap.Base.foo'
                         )
 
