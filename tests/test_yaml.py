@@ -29,7 +29,7 @@ def sphinx_build(test_dir):
 class PythonTests(unittest.TestCase):
 
     def _rm_newlines(self, string):
-        re.sub('\n+', ' ', string).strip()
+        return re.sub('\n+', ' ', string).strip()
 
     def test_functional(self):
         """
