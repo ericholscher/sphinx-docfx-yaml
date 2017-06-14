@@ -31,7 +31,7 @@ def _get_desc_data(node):
 def _is_desc_of_enum_class(node):
     assert node.tagname == 'desc_content'
 
-    if node[0] and node[0].tagname == 'paragraph' and node[0].astext() == 'Bases: enum.Enum':
+    if node[0] and node[0].tagname == 'paragraph' and 'Bases: enum.Enum' in node[0].astext():
         return True
 
     return False
