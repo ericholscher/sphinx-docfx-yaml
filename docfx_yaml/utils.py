@@ -2,8 +2,6 @@ import re
 from docutils.io import StringOutput
 from docutils.utils import new_document
 from docutils import nodes
-from inspect import signature
-from collections import namedtuple
 
 from .writer import MarkdownWriter as Writer
 
