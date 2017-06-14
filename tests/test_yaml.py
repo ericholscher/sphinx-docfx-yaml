@@ -128,7 +128,7 @@ class PythonTests(unittest.TestCase):
                         )
                         self.assertEqual(
                             item['syntax']['content'],
-                            'method_okay(self, foo=None, bar=None)',
+                            'method_okay(foo=None, bar=None)',
                         )
 
     def test_vcs(self):
