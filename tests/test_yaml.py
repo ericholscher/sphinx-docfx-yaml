@@ -146,7 +146,7 @@ class PythonTests(unittest.TestCase):
                         )
                         self.assertEqual(
                             item['source']['remote']['path'],
-                            'tests/pyexample/example/example.py',
+                            os.path.normpath(os.path.abspath('example/example.py')),
                         )
 
     def test_markdown(self):
