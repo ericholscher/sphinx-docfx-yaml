@@ -236,7 +236,6 @@ def patch_docfields(app):
                                     'parent': parent,
                                     'langs': ['python'],
                                     'name': name,
-                                    'nameWithType': item.get('fullname'),
                                     'fullName': curuid,
                                     'type': item.parent.get('desctype'),
                                     'module': item.get('module'),
