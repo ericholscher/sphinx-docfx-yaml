@@ -25,7 +25,7 @@ from .settings import API_ROOT
 from .monkeypatch import patch_docfields
 
 
-class bcolors:
+class Bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
@@ -38,7 +38,9 @@ class bcolors:
 try:
     from conf import *
 except ImportError:
-    print(bcolors.FAIL + 'can not import conf.py! you should have a conf.py in working project folder' + bcolors.ENDC)
+    print(Bcolors.FAIL + 'can not import conf.py! '
+                         'you should have a conf.py in working project folder' +
+          Bcolors.ENDC)
 
 METHOD = 'method'
 FUNCTION = 'function'
@@ -139,9 +141,12 @@ def _refact_example_in_module_summary(lines):
             block_lines[:] = []
         elif example_block_flag:
             if line == '   ':  # origianl line is blank line ('\n').
-                line = '\n' # after outer ['\n'.join] operation, this '\n' will be appended to previous line then. BINGO!
+                # after outer ['\n'.join] operation,
+                # this '\n' will be appended to previous line then. BINGO!
+                line = '\n'
             elif line.startswith('   '):
-                # will be indented by 4 spaces according to yml block syntax. https://learnxinyminutes.com/docs/yaml/
+                # will be indented by 4 spaces according to yml block syntax.
+                # https://learnxinyminutes.com/docs/yaml/
                 line = ' ' + line + '\n'
             block_lines.append(line)
 
@@ -191,8 +196,8 @@ def _create_datam(app, cls, module, name, _type, obj, lines=None):
 
         # append relative path defined in conf.py (in case of "binding python" project)
         try:
-            source_prefix  # does source_prefix exist in the current namespace
-            path = source_prefix + path
+            source_prefix  # NOQA does source_prefix exist in the current namespace
+            path = source_prefix + path  # NOQA
         except NameError:
             print("no source_prefix defined")
 
@@ -358,16 +363,15 @@ def build_finished(app, exception):
     def find_node_in_toc_tree(toc_yaml, to_add_node):
         for module in toc_yaml:
             if module['name'] == to_add_node:
-                return module;
+                return module
 
             if 'items' in module:
                 items = module['items']
                 found_module = find_node_in_toc_tree(items, to_add_node)
-                if found_module != None:
+                if found_module is not None:
                     return found_module
 
-        return None;
-
+        return None
 
     normalized_outdir = os.path.normpath(os.path.join(
         app.builder.outdir,  # Output Directory for Builder
@@ -450,7 +454,10 @@ def build_finished(app, exception):
                 found_node = find_node_in_toc_tree(toc_yaml, parent_level)
 
                 if found_node:
-                    found_node.setdefault('items', []).append({'name': filename, 'href': '%s.yml' % filename})
+                    found_node.setdefault('items', []).append({
+                        'name': filename,
+                        'href': '%s.yml' % filename
+                    })
                 else:
                     print('No parent level module found: {}'.format(parent_level))
             else:
@@ -479,8 +486,9 @@ def missing_reference(app, env, node, contnode):
         if 'py:module' in node:
             module = node['py:module']
 
-        #Refactor reftarget to fullname if it is a short name
-        if reftype in [CLASS, REFFUNCTION, REFMETHOD] and not reftarget.startswith(module.split('.')[0]):
+        # Refactor reftarget to fullname if it is a short name
+        if reftype in [CLASS, REFFUNCTION, REFMETHOD] and \
+                not reftarget.startswith(module.split('.')[0]):
             if reftype in [CLASS, REFFUNCTION]:
                 fields = (module, reftarget)
             else:

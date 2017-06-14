@@ -25,7 +25,8 @@ from docutils.utils import column_width
 from sphinx import addnodes
 from sphinx.locale import admonitionlabels
 
-class bcolors:
+
+class Bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
@@ -34,7 +35,6 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
-
 
 
 class TextWrapper(textwrap.TextWrapper):
@@ -197,7 +197,9 @@ class MarkdownTranslator(nodes.NodeVisitor):
         self.states.append([])
         self.stateindent.append(indent)
 
-    def end_state(self, wrap=False, end=[''], first=None):
+    def end_state(self, wrap=False, end=None, first=None):
+        if end is None:
+            end = ['']
         content = self.states.pop()
         maxindent = sum(self.stateindent)
         indent = self.stateindent.pop()
@@ -291,7 +293,6 @@ class MarkdownTranslator(nodes.NodeVisitor):
             depth += 1
             element = element.parent
         self.add_text(self.nl * 2 + (depth * '#') + ' ')
-
 
     def depart_title(self, node):
         pass
@@ -528,7 +529,6 @@ class MarkdownTranslator(nodes.NodeVisitor):
             raise NotImplementedError('Nested tables are not supported.')
         self.new_state(0)
         self.table = [[]]
-        self
 
     def depart_table(self, node):
         lines = self.table[1:]
@@ -595,7 +595,11 @@ class MarkdownTranslator(nodes.NodeVisitor):
 
     def visit_image(self, node):
         try:
-            image_name = '/'.join(node.attributes['uri'].split('/')[node.attributes['uri'].split('/').index('_static')-1:])
+            image_name = '/'.join(
+                node.attributes['uri']
+                .split('/')[
+                    node.attributes['uri']
+                    .split('/').index('_static')-1:])
         except ValueError as e:
             sys.exit("Image not found where expected {}".format(node.attributes['uri']))
         image_name = ''.join(image_name.split())
@@ -737,7 +741,7 @@ class MarkdownTranslator(nodes.NodeVisitor):
         if isinstance(node.children[0], nodes.Sequential):
             self.add_text(self.nl)
 
-    def _make_depart_admonition(name):
+    def _make_depart_admonition(name):  # NOQA
         def depart_admonition(self, node):
             self.end_state(first=admonitionlabels[name] + ': ')
         return depart_admonition
@@ -778,20 +782,22 @@ class MarkdownTranslator(nodes.NodeVisitor):
             path = self.builder.confdir
             relative_path = node.attributes['source'][len(path)+1:]
 
+            if 'language' in node.attributes:
+                include_language = node.attributes['language']
 
             if 'language' in node.attributes:
-                    include_language = node.attributes['language']
-
-            if 'language' in node.attributes:
-                    include_language = node.attributes['language']
+                include_language = node.attributes['language']
 
             if 'caption' in node.attributes:
-                    include_caption = node.attributes['caption']
+                include_caption = node.attributes['caption']
 
             include_language = (('-' + include_language) if (include_language is not None) else '')
-            include_caption = (('"' + include_caption + '"') if (include_caption is not None) else '')
+            include_caption = (('"' + include_caption + '"') if include_caption is not None else '')
 
-            self.add_text('<!--[!code{}[Main]({} {})]-->'.format(include_language, relative_path, include_caption))
+            self.add_text('<!--[!code{}[Main]({} {})]-->'.format(
+                include_language,
+                relative_path,
+                include_caption))
         except KeyError as e:
             pass
         except ValueError as e:
@@ -806,7 +812,6 @@ class MarkdownTranslator(nodes.NodeVisitor):
         else:
             self.add_text('````')
         self.new_state()
-
 
     def depart_literal_block(self, node):
         self.add_text(self.nl + '````')
@@ -893,7 +898,7 @@ class MarkdownTranslator(nodes.NodeVisitor):
                 # no need '.html#id' ending in yml files
                 pos = node.attributes['refuri'].find('.html')
                 if pos != -1:
-                     node.attributes['refuri'] = node.attributes['refuri'][0: pos]
+                    node.attributes['refuri'] = node.attributes['refuri'][0: pos]
                 self.add_text('@{}'.format(node.attributes['refuri']))
         else:
             self.add_text('{}<!-- {} -->'.format(node.tagname, json.dumps(node.attributes)))
@@ -976,10 +981,10 @@ class MarkdownTranslator(nodes.NodeVisitor):
         self.add_text('[%s]' % node.astext())
         raise nodes.SkipNode
 
-    def visit_Text(self, node):
+    def visit_Text(self, node):  # NOQA
         self.add_text(node.astext())
 
-    def depart_Text(self, node):
+    def depart_Text(self, node):  # NOQA
         pass
 
     def visit_generated(self, node):
@@ -1009,7 +1014,7 @@ class MarkdownTranslator(nodes.NodeVisitor):
         self.add_text('<<')
 
     def visit_system_message(self, node):
-        print(bcolors.WARNING + "System message warnings: %s" % node.astext() + bcolors.ENDC)
+        print(Bcolors.WARNING + "System message warnings: %s" % node.astext() + Bcolors.ENDC)
         raise nodes.SkipNode
 
     def visit_comment(self, node):
@@ -1023,7 +1028,7 @@ class MarkdownTranslator(nodes.NodeVisitor):
         if 'text' in node.get('format', '').split():
             self.new_state(0)
             self.add_text(node.astext())
-            self.end_state(wrap = False)
+            self.end_state(wrap=False)
         raise nodes.SkipNode
 
     def visit_math(self, node):

@@ -4,7 +4,6 @@ from functools import partial
 from sphinx.util.docfields import _is_single_paragraph
 from sphinx.util import docfields
 from sphinx import directives, addnodes
-from sphinx import addnodes
 
 from .utils import transform_node as _transform_node
 
@@ -224,7 +223,7 @@ def patch_docfields(app):
                 else:
                     content = transform_node(child)
 
-                    # skip 'Bases' in summary 
+                    # skip 'Bases' in summary
                     if not content.startswith('Bases: '):
                         summary.append(content)
             if summary:

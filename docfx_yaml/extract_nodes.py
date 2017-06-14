@@ -110,7 +110,7 @@ def extract_yaml(app, doctree, ignore_patterns):
             modules[module] = [{
                 'module': str(module),
                 'uid': str(module),
-                'type': 'Namespace',
+                # 'type': 'Namespace',
                 'type': 'module',
                 'name': str(module),
                 'children': []
