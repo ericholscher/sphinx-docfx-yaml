@@ -239,7 +239,7 @@ class PythonTests(unittest.TestCase):
                     if item['uid'] == 'example.enum_type.EnumFoo.VALUE0':
                         self.assertEqual(
                             item['syntax'],
-                            {'content': 'VALUE0 = 0', 'return': {'type': 'example.enum_type.EnumFoo'}}
+                            {'content': 'VALUE0 = 0', 'return': {'type': ['example.enum_type.EnumFoo']}}
                         )
                         self.assertEqual(
                             item['type'],
@@ -248,7 +248,7 @@ class PythonTests(unittest.TestCase):
                     if item['uid'] == 'example.enum_type.EnumFoo.VALUE1':
                         self.assertEqual(
                             item['syntax'],
-                            {'content': 'VALUE1 = 1', 'return': {'type': 'example.enum_type.EnumFoo'}}
+                            {'content': 'VALUE1 = 1', 'return': {'type': ['example.enum_type.EnumFoo']}}
                         )
                         self.assertEqual(
                             item['type'],
