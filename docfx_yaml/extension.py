@@ -497,7 +497,9 @@ def build_finished(app, exception):
                 if found_node:
                     found_node.setdefault('items', []).append({'name': filename, 'uid': filename})
                 else:
-                    toc_yaml.append({'name': filename, 'uid': filename})            else:
+                    toc_yaml.append({'name': filename, 'uid': filename})
+
+            else:
                 toc_yaml.append({'name': filename, 'uid': filename})
 
     toc_file = os.path.join(normalized_outdir, 'toc.yml')
