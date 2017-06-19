@@ -7,7 +7,6 @@ from sphinx import directives, addnodes
 from sphinx import addnodes
 
 from sphinx.addnodes import desc, desc_signature
-
 from .utils import transform_node as _transform_node
 
 
@@ -30,8 +29,7 @@ def _get_desc_data(node):
 
 def _is_desc_of_enum_class(node):
     assert node.tagname == 'desc_content'
-
-    if node[0] and node[0].tagname == 'paragraph' and 'Bases: enum.Enum' in node[0].astext():
+    if node[0] and node[0].tagname == 'paragraph' and node[0].astext() == 'Bases: enum.Enum':
         return True
 
     return False
@@ -183,7 +181,7 @@ def patch_docfields(app):
                 if fieldtype.name == 'returntype':
                     returntype_ret = u''.join(n.astext() for n in content[1])
                     if returntype_ret:
-                        data['return']['type'] = [returntype_ret]
+                        data['return'].setdefault('type', []).append(returntype_ret)
                 if fieldtype.name == 'returnvalue':
                     returnvalue_ret = transform_node(content[1][0])
                     if returnvalue_ret:
@@ -197,6 +195,11 @@ def patch_docfields(app):
                         else:
                             _type = None
                         if fieldtype.name == 'parameter':
+                            # Remove @ and \n for cross reference in parameter type to apply to docfx correctly
+                            if _type and _type.startswith('@'):
+                                _type = _type[1:]
+                                _type = _type.rstrip('\n')
+
                             _data = make_param(_id=_id, _type=_type, _description=_description)
                             data['parameters'].append(_data)
                         if fieldtype.name == 'variable':

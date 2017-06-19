@@ -48,6 +48,7 @@ EXCEPTION = 'exception'
 ATTRIBUTE = 'attribute'
 REFMETHOD = 'meth'
 REFFUNCTION = 'func'
+INITPY = '__init__.py'
 
 
 def build_init(app):
@@ -170,7 +171,7 @@ def _create_datam(app, cls, module, name, _type, obj, lines=None):
                 for count, default in enumerate(argspec.defaults):
                     cut_count = len(argspec.defaults)
                     # Match the defaults with the count
-                    args[len(args) - 1 - cut_count - 1 - count]['defaultValue'] = str(default)
+                    args[len(args) - cut_count + count]['defaultValue'] = str(default)
     except Exception:
         print("Can't get argspec for {}: {}".format(type(obj), name))
 
@@ -196,7 +197,7 @@ def _create_datam(app, cls, module, name, _type, obj, lines=None):
             source_prefix  # does source_prefix exist in the current namespace
             path = source_prefix + path
         except NameError:
-            print("no source_prefix defined")
+            pass
 
     except (TypeError, OSError):
         print("Can't inspect type {}: {}".format(type(obj), name))
@@ -340,18 +341,15 @@ def insert_children_on_module(app, _type, datam):
             return
 
         insert_module = app.env.docfx_yaml_modules[parent_module_name]
-        #print('---------- found parent module %s' % insert_module)
 
         # Add module to parent module node
         for obj in insert_module:
-            #print('will handle obj %s' % obj)
             if _type in [MODULE] and \
                     obj['type'] == MODULE and \
                     obj[MODULE] == parent_module_name:
                 obj['children'].append(datam['uid'])
                 obj['references'].append(_create_reference(datam, parent=obj['uid']))
 
-                #print('---------- after parse children: %s, obj.references %s' % (obj['children'], obj['references']))
                 break
 
 
@@ -391,21 +389,19 @@ def build_finished(app, exception):
                 if found_module != None:
                     return found_module
 
-        return None;
+        return None
 
-    def convert_module_to_packages_if_need(obj):
-        has_sub_module = False
-        #print(bcolors.OKGREEN + 'convert_module_to_packages_if_need obj-children: %s' % obj['children'] + bcolors.ENDC)
-        
+    def convert_module_to_package_if_needed(obj):
+        if 'source' in obj and 'path' in obj['source'] and obj['source']['path'].endswith(INITPY):
+            obj['type'] = 'package'
+            return
+
         for child_uid in obj['children']:
             if child_uid in app.env.docfx_info_uid_modules:
                 child_uid_type = app.env.docfx_info_uid_modules[child_uid]
 
                 if child_uid_type == MODULE:
-                    #print(bcolors.OKGREEN + 'convert_module_to_packages_if_need child_uid: %s, and child_uid_type: %s' % (child_uid, child_uid_type) + bcolors.ENDC)
-                    has_sub_module = True
                     obj['type'] = 'package'
-                    print(bcolors.OKGREEN + 'change obj %s type to package' % obj['module'] + bcolors.ENDC)
                     return
 
 
@@ -441,9 +437,8 @@ def build_finished(app, exception):
                                 app.warn(
                                     "Documented params don't match size of params:"
                                     " {}".format(obj['uid']))
-                            if len(arg_params) - len(doc_params) == 1:
+                            if('id' in arg_params[0] and arg_params[0]['id'] == 'self'):
                                 # Support having `self` as an arg param, but not documented
-                                merged_params = [arg_params[0]]
                                 arg_params = arg_params[1:]
                             for args, docs in zip(arg_params, doc_params):
                                 args.update(docs)
@@ -475,8 +470,7 @@ def build_finished(app, exception):
                     references.extend(obj.pop('references'))
 
                 if obj['type'] == 'module':
-                    # change type to 'package' when this 'module' has sub module
-                    convert_module_to_packages_if_need(obj)
+                    convert_module_to_package_if_needed(obj)
 
             # Output file
             out_file = os.path.join(normalized_outdir, '%s.yml' % filename)
@@ -484,7 +478,7 @@ def build_finished(app, exception):
             if app.verbosity >= 1:
                 app.info(bold('[docfx_yaml] ') + darkgreen('Outputting %s' % filename))
             with open(out_file, 'w') as out_file_obj:
-                out_file_obj.write('#YamlMime:PythonReference\n')
+                out_file_obj.write('### YamlMime:UniversalReference\n')
                 dump(
                     {
                         'items': yaml_data,
@@ -501,12 +495,10 @@ def build_finished(app, exception):
                 found_node = find_node_in_toc_tree(toc_yaml, parent_level)
 
                 if found_node:
-                    found_node.setdefault('items', []).append({'name': filename, 'href': '%s.yml' % filename})
+                    found_node.setdefault('items', []).append({'name': filename, 'uid': filename})
                 else:
-                    print('No parent level module found: {}'.format(parent_level))
-                    toc_yaml.append({'name': filename, 'href': '%s.yml' % filename})
-            else:
-                toc_yaml.append({'name': filename, 'href': '%s.yml' % filename})
+                    toc_yaml.append({'name': filename, 'uid': filename})            else:
+                toc_yaml.append({'name': filename, 'uid': filename})
 
     toc_file = os.path.join(normalized_outdir, 'toc.yml')
     with open(toc_file, 'w') as writable:
