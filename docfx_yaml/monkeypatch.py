@@ -242,7 +242,7 @@ def patch_docfields(app):
                                     'syntax': {
                                         'content': item.astext(),
                                         'return': {
-                                            'type': parent
+                                            'type': [parent]
                                         }
                                     }
                                 }
