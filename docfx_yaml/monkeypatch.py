@@ -184,7 +184,7 @@ def patch_docfields(app):
                                     raise_type_index = pending_xref.first_child_matching_class(nodes.literal)
                                     if raise_type_index is not None:
                                         raise_type = pending_xref[raise_type_index]
-                                        ret.append({'type': raise_type.astext(), 'reftarget': pending_xref['reftarget'], 'desc': raise_type.astext()})
+                                        ret.append({'type': pending_xref['reftarget'], 'desc': raise_type.astext()})
 
             return ret
 
@@ -233,7 +233,6 @@ def patch_docfields(app):
                     for ret in ret_list:
                         data.setdefault('exceptions', []).append({
                             'type': ret['type'],
-                            'reftarget': ret['reftarget'],
                             'description': ret['desc']
                         })
 
