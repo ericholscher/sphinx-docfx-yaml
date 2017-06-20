@@ -883,7 +883,7 @@ class MarkdownTranslator(nodes.NodeVisitor):
                 pos = node.attributes['refuri'].find('.html')
                 if pos != -1:
                      node.attributes['refuri'] = node.attributes['refuri'][0: pos]
-                self.add_text('@{}'.format(node.attributes['refuri']))
+                self.add_text(node.astext())
         else:
             self.add_text('{}<!-- {} -->'.format(node.tagname, json.dumps(node.attributes)))
         raise nodes.SkipNode
