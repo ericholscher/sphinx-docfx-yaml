@@ -889,10 +889,10 @@ class MarkdownTranslator(nodes.NodeVisitor):
             if 'http' in node.attributes['refuri']:
                 self.add_text('[{}]({})'.format(node.astext(), node.attributes['refuri']))
             else:
-                # only use id in refuri if id exists
+                # only use id in class and func refuri if its id exists
                 # otherwise, remove '.html#' in refuri
                 uri_fields = node.attributes['refuri'].split('#')
-                if len(uri_fields) > 1 and uri_fields[1]:
+                if len(uri_fields) > 1 and uri_fields[1] and 'module' not in uri_fields[1]:
                     node.attributes['refuri'] = uri_fields[1]
                 else:
                     pos = node.attributes['refuri'].find('.html')
