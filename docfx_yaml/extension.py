@@ -6,6 +6,7 @@ This extension allows you to automagically generate DocFX YAML from your Python 
 """
 import os
 import inspect
+import re
 from functools import partial
 
 try:
@@ -158,6 +159,23 @@ def _create_datam(app, cls, module, name, _type, obj, lines=None):
     Build the data structure for an autodoc class
     """
 
+    def _update_friendly_package_name(path):
+        package_name_index = path.find(os.sep)
+        package_name = path[:package_name_index]
+        if len(package_name) > 0:
+            try:
+                for name in namespace_package_dict:
+                    if re.match(name, package_name) is not None:
+                        package_name = namespace_package_dict[name]
+                        path = os.path.join(package_name, path[package_name_index + 1:])
+                        return path
+
+            except NameError:
+                pass
+
+        return path
+
+
     if lines is None:
         lines = []
     short_name = name.split('.')[-1]
@@ -171,7 +189,7 @@ def _create_datam(app, cls, module, name, _type, obj, lines=None):
                 for count, default in enumerate(argspec.defaults):
                     cut_count = len(argspec.defaults)
                     # Match the defaults with the count
-                    args[len(args) - 1 - cut_count - 1 - count]['defaultValue'] = str(default)
+                    args[len(args) - cut_count + count]['defaultValue'] = str(default)
     except Exception:
         print("Can't get argspec for {}: {}".format(type(obj), name))
 
@@ -188,9 +206,12 @@ def _create_datam(app, cls, module, name, _type, obj, lines=None):
         import_path = os.path.dirname(inspect.getfile(os))
         path = path.replace(os.path.join(import_path, 'site-packages'), '')
         path = path.replace(import_path, '')
+
         # Make relative
-        path = path.replace('/', '', 1)
+        path = path.replace(os.sep, '', 1)
         start_line = inspect.getsourcelines(obj)[1]
+
+        path = _update_friendly_package_name(path)
 
         # append relative path defined in conf.py (in case of "binding python" project)
         try:
@@ -437,9 +458,8 @@ def build_finished(app, exception):
                                 app.warn(
                                     "Documented params don't match size of params:"
                                     " {}".format(obj['uid']))
-                            if len(arg_params) - len(doc_params) == 1:
+                            if('id' in arg_params[0] and arg_params[0]['id'] == 'self'):
                                 # Support having `self` as an arg param, but not documented
-                                merged_params = [arg_params[0]]
                                 arg_params = arg_params[1:]
                             for args, docs in zip(arg_params, doc_params):
                                 args.update(docs)
@@ -460,11 +480,16 @@ def build_finished(app, exception):
                     if 'example' in obj['syntax'] and obj['syntax']['example']:
                         obj.setdefault('example', []).append(obj['syntax'].pop('example'))
 
-                    # append 'enum_attribute' to summary
+                    # Raise up exceptions
+                    if 'exceptions' in obj['syntax'] and obj['syntax']['exceptions']:
+                        obj['exceptions'] = obj['syntax'].pop('exceptions')
+
+                    # add content of temp list 'enum_attribute' to children and yaml_data
                     if 'enum_attribute' in obj['syntax'] and obj['syntax']['enum_attribute']:
                         enum_attribute = obj['syntax'].pop('enum_attribute')
-                        if 'summary' in obj:
-                            obj['summary'] += ('\n\n' + '\n\n'.join(enum_attribute) + '\n')
+                        for attrData in enum_attribute:
+                            obj.get('children', []).append(attrData['uid'])
+                            yaml_data.append(attrData)
 
                 if 'references' in obj:
                     references.extend(obj.pop('references'))
@@ -497,8 +522,8 @@ def build_finished(app, exception):
                 if found_node:
                     found_node.setdefault('items', []).append({'name': filename, 'uid': filename})
                 else:
-                    print('No parent level module found: {}'.format(parent_level))
                     toc_yaml.append({'name': filename, 'uid': filename})
+
             else:
                 toc_yaml.append({'name': filename, 'uid': filename})
 
