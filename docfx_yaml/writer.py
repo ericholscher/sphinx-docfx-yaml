@@ -891,8 +891,12 @@ class MarkdownTranslator(nodes.NodeVisitor):
             else:
                 # only use id in class and func refuri if its id exists
                 # otherwise, remove '.html#' in refuri
+                # uri_fields[1] is class or function uid. e.g:
+                # case 0 - [module]#[class-uid] (go to if block to use class-uid instead)
+                # case 1 - [module]#module-[module] (go to else block to remove '.html#' in refuri)
+                # case 2 - [class]# (go to else block to remove '.html#' in refuri)
                 uri_fields = node.attributes['refuri'].split('#')
-                if len(uri_fields) > 1 and uri_fields[1] and 'module' not in uri_fields[1]:
+                if len(uri_fields) > 1 and uri_fields[1] and not uri_fields[1].startswith('module'):
                     node.attributes['refuri'] = uri_fields[1]
                 else:
                     pos = node.attributes['refuri'].find('.html')
