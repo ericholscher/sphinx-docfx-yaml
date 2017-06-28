@@ -891,13 +891,13 @@ class MarkdownTranslator(nodes.NodeVisitor):
             else:
                 # only use id in refuri if id exists
                 # otherwise, remove '.html#' in refuri
-                id = node.attributes['refuri'].split('#')[1]
-                if id:
-                    node.attributes['refuri'] = id
+                uri_fields = node.attributes['refuri'].split('#')
+                if len(uri_fields) > 1 and uri_fields[1]:
+                    node.attributes['refuri'] = uri_fields[1]
                 else:
                     pos = node.attributes['refuri'].find('.html')
                     if pos != -1:
-                         node.attributes['refuri'] = node.attributes['refuri'][0: pos]
+                        node.attributes['refuri'] = node.attributes['refuri'][0: pos]
                 self.add_text('@{}'.format(node.attributes['refuri']))
         else:
             self.add_text('{}<!-- {} -->'.format(node.tagname, json.dumps(node.attributes)))
