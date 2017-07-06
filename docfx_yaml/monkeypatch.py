@@ -229,11 +229,11 @@ def patch_docfields(app):
                             _data = make_param(_id=_id, _type=_type, _description=_description)
                             data['variables'].append(_data)
 
+                    # only use type in exceptions
                     ret_list = extract_exception_desc(field_object)
                     for ret in ret_list:
                         data.setdefault('exceptions', []).append({
-                            'type': ret['type'],
-                            'description': ret['desc']
+                            'type': ret['type']
                         })
 
         return data
