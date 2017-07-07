@@ -206,7 +206,8 @@ def patch_docfields(app):
                         returntype_ret = transform_node(returntype_node)
                         if returntype_ret:
                             # Support or in returntype
-                            for returntype in returntype_ret.split('or'):
+                            for returntype in returntype_ret.split(' or '):
+                                # Strip '\n' '\t' ''
                                 returntype = returntype.strip()[1:]
                                 data['return'].setdefault('type', []).append(returntype)
                 if fieldtype.name == 'returnvalue':
