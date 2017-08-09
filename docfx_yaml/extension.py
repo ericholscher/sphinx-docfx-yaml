@@ -51,7 +51,7 @@ ATTRIBUTE = 'attribute'
 REFMETHOD = 'meth'
 REFFUNCTION = 'func'
 INITPY = '__init__.py'
-REF_PATTERN = ':(func|class|meth|mod):`~?[a-zA-Z_\.]*?`'
+REF_PATTERN = ':(func|class|meth|mod|ref):`~?[a-zA-Z_\.<> ]*?`'
 
 
 def build_init(app):
@@ -165,8 +165,14 @@ def _resolve_reference_in_module_summary(lines):
             start = matched_obj.start()
             end = matched_obj.end()
             matched_str = line[start:end]
-            index = matched_str.index('~') if '~' in matched_str else matched_str.index('`')
-            ref_name = matched_str[index+1:-1]
+            if '<' in matched_str and '>' in matched_str:
+                # match string like ':func:`***<***>`'
+                index = matched_str.index('<')
+                ref_name = matched_str[index+1:-2]
+            else:
+                # match string like ':func:`~***`' or ':func:`***`'
+                index = matched_str.index('~') if '~' in matched_str else matched_str.index('`')
+                ref_name = matched_str[index+1:-1]
             new_line = new_line.replace(matched_str, '@' + ref_name)
         new_lines.append(new_line)
     return new_lines
