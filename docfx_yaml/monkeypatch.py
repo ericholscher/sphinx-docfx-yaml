@@ -261,7 +261,7 @@ def patch_docfields(app):
                 if isinstance(child, addnodes.desc):
                     if child.get('desctype') == 'attribute':
                         for item in child:
-                            if isinstance(item, desc_signature) and any(isinstance(n,addnodes.desc_annotation) for n in item):
+                            if isinstance(item, desc_signature) and any(isinstance(n, addnodes.desc_annotation) for n in item):
                                 # capture attributes data and cache it
                                 data.setdefault('added_attribute', [])
 
@@ -288,13 +288,13 @@ def patch_docfields(app):
                                     }
                                 else:
                                     addedData = {
-                                        'module': item.get('module'),
-                                        'class': parent,
                                         'uid': curuid,
-                                        'type': 'attribute',
+                                        'class': parent,
+                                        'langs': ['python'],
                                         'name': name,
                                         'fullName': curuid,
-                                        'langs': ['python'],
+                                        'type': 'attribute',
+                                        'module': item.get('module'),
                                         'syntax': {
                                             'content': item.astext()
                                         }
