@@ -228,7 +228,6 @@ def patch_docfields(app):
                         if fieldtype.name == 'parameter':
                             if _type:
                                 for _s_type in _type.split(' or '):
-                                    print("return type: " +   _type)
                                     # Remove @ and \n for cross reference in parameter type to apply to docfx correctly
                                     if _s_type and _s_type.startswith('@'):
                                         _s_type = _s_type[1:]
