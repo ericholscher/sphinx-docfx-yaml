@@ -538,7 +538,7 @@ def build_finished(app, exception):
                                 obj['references'].append(_create_reference(attrData, parent))
 
                 if 'references' in obj:
-                    #Ensure that references have no duplicate ref
+                    # Ensure that references have no duplicate ref
                     ref_uids = [r['uid'] for r in references]
                     for ref_obj in obj['references']:
                         if ref_obj['uid'] not in ref_uids:
