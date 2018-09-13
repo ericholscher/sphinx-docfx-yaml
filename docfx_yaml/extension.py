@@ -403,6 +403,12 @@ def process_docstring(app, _type, name, obj, options, lines):
             app.env.docfx_yaml_classes[cls].append(datam)
 
     elif _type == FUNCTION:
+        if datam['uid'] is None:
+            raise ValueError("Issue with {0} (name={1})".format(datam, name))
+        if cls is None:
+            cls = name
+        if cls is None:
+            raise ValueError("cls is None for name='{1}' {0}".format(datam, name))
         if cls not in app.env.docfx_yaml_functions:
             app.env.docfx_yaml_functions[cls] = [datam]
         else:
@@ -558,6 +564,8 @@ def build_finished(app, exception):
         for page in pages:
             mapping[page['uid'].replace("\\", "/").replace("/", ".")] = page
     for k, vs in store.items():
+        if k not in mapping:
+            continue
         datam = mapping[k]
         for v in vs:
             if v not in datam['children']:
@@ -785,7 +793,6 @@ def build_finished(app, exception):
     for item in toc_yaml:
         if item.get('type') == PAGE and item.get('uid') != app.config.master_doc:
             continue
-        print(item)
         index_children.append(item.get('uid', ''))        
         index_references.append({
             'uid': item.get('uid', ''),
