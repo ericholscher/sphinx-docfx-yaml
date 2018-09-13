@@ -6,10 +6,13 @@ from sphinx.util.docfields import _is_single_paragraph
 from sphinx.util import docfields
 from sphinx import directives, addnodes
 from sphinx import addnodes
-
 from sphinx.addnodes import desc, desc_signature
 from .utils import transform_node as _transform_node
 from .nodes import remarks
+from sphinx.util.logging import getLogger 
+
+logger = getLogger("sphinx-docfx-yaml")
+
 
 TYPE_SEP_PATTERN = '(\[|\]|, |\(|\))'
 REF_PATTERN = ':(func|class|meth|mod|ref|any):`~?([a-zA-Z_\.<> ]*?)`'
@@ -17,23 +20,21 @@ REF_PATTERN = ':(func|class|meth|mod|ref|any):`~?([a-zA-Z_\.<> ]*?)`'
 def _get_desc_data(node):
     assert node.tagname == 'desc'
     if node.attributes['domain'] != 'py':
-        print(
-            'Skipping Domain Object (%s)' % node.attributes['domain']
-        )
+        logger.info("[docfx] Skipping Domain Object (%s)' % node.attributes['domain']")
         return None, None
 
     try:
         module = node[0].attributes['module']
         full_name = node[0].attributes['fullname'].split('.')[-1]
     except KeyError as e:
-        print("[docfx_yaml] There maybe some syntax error in docstring near: " + node.astext())
+        logger.warning("[docfx_yaml] There maybe some syntax error in docstring near: '{}'".format(node.astext()))
         raise e
 
     try:
         uid = node[0].attributes['ids'][0]
     except Exception:
         uid = '{module}.{full_name}'.format(module=module, full_name=full_name)
-        print('Non-standard id: %s' % uid)
+        logger.warning("Non-standard id: '%s'" % uid)
     return full_name, uid
 
 
@@ -408,7 +409,8 @@ def patch_docfields(app):
                     child_copy.pop(0)
                     data['example'] = transform_node(child_copy)
                 else:
-                    content = transform_node(child)
+                    child_copy = child.deepcopy()
+                    content = transform_node(child_copy)
 
                     # skip 'Bases' in summary
                     if not content.startswith('Bases: '):

@@ -27,6 +27,10 @@ from .settings import API_ROOT
 from .monkeypatch import patch_docfields
 from .directives import RemarksDirective, TodoDirective
 from .nodes import remarks
+from sphinx.addnodes import toctree
+from sphinx.util.logging import getLogger 
+
+logger = getLogger("sphinx-docfx-yaml")
 
 
 class Bcolors:
@@ -40,16 +44,11 @@ class Bcolors:
     UNDERLINE = '\033[4m'
 
 
-try:
-    from conf import *
-except ImportError:
-    print(Bcolors.FAIL + 'can not import conf.py! '
-    'you should have a conf.py in working project folder' + Bcolors.ENDC)
-
 METHOD = 'method'
 FUNCTION = 'function'
 MODULE = 'module'
 CLASS = 'class'
+PAGE = 'page'
 EXCEPTION = 'exception'
 ATTRIBUTE = 'attribute'
 REFMETHOD = 'meth'
@@ -62,19 +61,21 @@ def build_init(app):
     """
     Set up environment data
     """
-    if not app.config.docfx_yaml_output:
-        raise ExtensionError('You must configure an docfx_yaml_output setting')
-
     # This stores YAML object for modules
     app.env.docfx_yaml_modules = {}
     # This stores YAML object for classes
     app.env.docfx_yaml_classes = {}
+    # This stores YAML object for functions
+    app.env.docfx_yaml_functions = {}
     # This store the data extracted from the info fields
     app.env.docfx_info_field_data = {}
     # This stores signature for functions and methods
     app.env.docfx_signature_funcs_methods = {}
     # This store the uid-type mapping info
     app.env.docfx_info_uid_types = {}
+    # This stores YAML object for documentation pages
+    app.env.docfx_yaml_pages = {}
+    app.env.docfx_yaml_pages_reference = {}
 
     remote = getoutput('git remote -v')
 
@@ -156,7 +157,6 @@ def _refact_example_in_module_summary(lines):
                 # https://learnxinyminutes.com/docs/yaml/
                 line = ' ' + line + '\n'
             block_lines.append(line)
-
         else:
             new_lines.append(line)
     return new_lines
@@ -182,6 +182,74 @@ def _resolve_reference_in_module_summary(lines):
             new_line = new_line.replace(matched_str, '@' + ref_name)
         new_lines.append(new_line)
     return new_lines
+
+    
+def enumerate_extract_signature(doc, max_args=20):
+    el = "((?P<p%d>[*a-zA-Z_]+) *(?P<a%d>: *[a-zA-Z_.]+)? *(?P<d%d>= *[^ ]+?)?)"
+    els = [el % (i, i, i) for i in range(0, max_args)]
+    par = els[0] + "?" + "".join(["( *, *" + e + ")?" for e in els[1:]])
+    exp = "(?P<name>[a-zA-Z_]+) *[(] *(?P<sig>{0}) *[)]".format(par)
+    reg = re.compile(exp)
+    for func in reg.finditer(doc.replace("\n", " ")):
+        yield func
+
+
+def enumerate_cleaned_signature(doc, max_args=20):
+    for sig in enumerate_extract_signature(doc, max_args=max_args):
+        dic = sig.groupdict()
+        name = sig["name"]
+        args = []
+        for i in range(0, max_args):
+            p = dic.get('p%d' % i, None)
+            if p is None:
+                break
+            d = dic.get('d%d' % i, None)
+            if d is None:
+                args.append(p)
+            else:
+                args.append("%s%s" % (p, d))
+        yield "{0}({1})".format(name, ", ".join(args))
+
+
+def _extract_signature(obj_sig):
+    try:    
+        signature = inspect.signature(obj_sig)
+        parameters = signature.parameters
+    except TypeError as e:
+        mes = "[docfx] unable to get signature of '{0}' - {1}.".format(
+            object_name, str(e).replace("\n", "\\n"))
+        logger.warning(mes)
+        signature = None
+        parameters = None
+    except ValueError as e:
+        # Backup plan, no __text_signature__, this happen
+        # when a function was created with pybind11.
+        doc = obj_sig.__doc__
+        sigs = set(enumerate_cleaned_signature(doc))
+        if len(sigs) == 0:
+            mes = "[docfx] unable to get signature of '{0}' - {1}.".format(
+                object_name, str(e).replace("\n", "\\n"))
+            logger.warning(mes)
+            signature = None
+            parameters = None
+        elif len(sigs) > 1:
+            mes = "[docfx] too many signatures for '{0}' - {1} - {2}.".format(
+                object_name, str(e).replace("\n", "\\n"), " *** ".join(sigs))
+            logger.warning(mes)
+            signature = None
+            parameters = None
+        else:
+            try:
+                signature = inspect._signature_fromstr(
+                    inspect.Signature, obj_sig, list(sigs)[0])
+                parameters = signature.parameters
+            except TypeError as e:
+                mes = "[docfx] unable to get signature of '{0}' - {1}.".format(
+                    object_name, str(e).replace("\n", "\\n"))
+                logger.warning(mes)
+                signature = None
+                parameters = None    
+    return signature, parameters
 
 
 def _create_datam(app, cls, module, name, _type, obj, lines=None):
@@ -210,21 +278,21 @@ def _create_datam(app, cls, module, name, _type, obj, lines=None):
         lines = []
     short_name = name.split('.')[-1]
     args = []
-    try:
-        if _type in [METHOD, FUNCTION]:
-            argspec = inspect.getargspec(obj) # noqa
-            for arg in argspec.args:
-                args.append({'id': arg})
-            if argspec.defaults:
-                for count, default in enumerate(argspec.defaults):
-                    cut_count = len(argspec.defaults)
-                    # Only add defaultValue when str(default) doesn't contain object address string(object at 0x)
-                    # inspect.getargspec method will return wrong defaults which contain object address for some default values, like sys.stdout
-                    # Match the defaults with the count
-                    if 'object at 0x' not in str(default):
-                        args[len(args) - cut_count + count]['defaultValue'] = str(default)
-    except Exception:
-        print("Can't get argspec for {}: {}".format(type(obj), name))
+    if _type in [METHOD, FUNCTION]:
+        sign, parameters = _extract_signature(obj)
+        if sign is None:
+            logger.warning("[docfx] no found parameter for {}: {}".format(type(obj), name))
+        elif parameters is not None:
+            for count, (ind, par) in enumerate(parameters.items()):
+                st = str(par.default)
+                cut_count = len(st)
+                # Only add defaultValue when str(default) doesn't contain object address string(object at 0x)
+                # inspect.getargspec method will return wrong defaults which contain object address for some default values, like sys.stdout
+                # Match the defaults with the count
+                new_arg = {'id': par.name}
+                if 'object at 0x' not in st:
+                    new_arg['defaultValue'] = st
+                args.append(new_arg)
 
     if name in app.env.docfx_signature_funcs_methods:
         sig = app.env.docfx_signature_funcs_methods[name]
@@ -233,35 +301,27 @@ def _create_datam(app, cls, module, name, _type, obj, lines=None):
 
     try:
         full_path = inspect.getsourcefile(obj)
-        if full_path is None: # Meet a .pyd file
-            raise TypeError()
-        # Sub git repo path
-        path = full_path.replace(app.env.docfx_root, '')
-        # Support global file imports, if it's installed already
-        import_path = os.path.dirname(inspect.getfile(os))
-        path = path.replace(os.path.join(import_path, 'site-packages'), '')
-        path = path.replace(import_path, '')
-
-        # Make relative
-        path = path.replace(os.sep, '', 1)
         start_line = inspect.getsourcelines(obj)[1]
+    except (TypeError, OSError) as e:
+        logger.warning("[docfx] cannot get source file for {} ({}): {} due to '{}'".format(type(obj), _type, name, e))
+        full_path = "-"
+        start_line = 0
+        path = "-"
+    if full_path is None: # Meet a .pyd file
+        raise TypeError()
+    # Sub git repo path
+    path = full_path.replace(app.env.docfx_root, '')
+    # Support global file imports, if it's installed already
+    import_path = os.path.dirname(inspect.getfile(os))
+    path = path.replace(os.path.join(import_path, 'site-packages'), '')
+    path = path.replace(import_path, '')
 
-        path = _update_friendly_package_name(path)
+    # Make relative
+    path = path.replace(os.sep, '', 1)
+    path = _update_friendly_package_name(path)
 
-        # Get folder name from conf.py
-        path = os.path.join(app.config.folder, path)
-
-        # append relative path defined in conf.py (in case of "binding python" project)
-        try:
-            source_prefix  # does source_prefix exist in the current namespace
-            path = source_prefix + path
-        except NameError:
-            pass
-
-    except (TypeError, OSError):
-        print("Can't inspect type {}: {}".format(type(obj), name))
-        path = None
-        start_line = None
+    # Get folder name from conf.py
+    path = app.builder.outdir
 
     datam = {
         'module': module,
@@ -325,7 +385,7 @@ def process_docstring(app, _type, name, obj, options, lines):
 
     cls, module = _get_cls_module(_type, name)
     if not module:
-        print('Unknown Type: %s' % _type)
+        logger.warning('[docfx] Unknown Type: %s' % _type)
         return None
 
     datam = _create_datam(app, cls, module, name, _type, obj, lines)
@@ -336,16 +396,25 @@ def process_docstring(app, _type, name, obj, options, lines):
         else:
             app.env.docfx_yaml_modules[module].append(datam)
 
-    if _type == CLASS:
+    elif _type == CLASS:
         if cls not in app.env.docfx_yaml_classes:
             app.env.docfx_yaml_classes[cls] = [datam]
         else:
             app.env.docfx_yaml_classes[cls].append(datam)
 
-    insert_inheritance(app, _type, obj, datam)
+    elif _type == FUNCTION:
+        if cls not in app.env.docfx_yaml_functions:
+            app.env.docfx_yaml_functions[cls] = [datam]
+        else:
+            app.env.docfx_yaml_functions[cls].append(datam)
+            
+    else:
+        logger.info("[docfx] skip type {} - {}".format(_type, datam))
 
+    insert_inheritance(app, _type, obj, datam)
     insert_children_on_module(app, _type, datam)
     insert_children_on_class(app, _type, datam)
+    insert_children_on_function(app, _type, datam)
 
     app.env.docfx_info_uid_types[datam['uid']] = _type
 
@@ -455,10 +524,45 @@ def insert_children_on_class(app, _type, datam):
             insert_class.append(datam)
 
 
+def insert_children_on_function(app, _type, datam):
+    """
+    Insert children of a specific class
+    """
+    if FUNCTION not in datam:
+        return
+
+    insert_functions = app.env.docfx_yaml_functions[datam[FUNCTION]]
+    insert_functions.append(datam)
+
+
+def insert_page(app, _type, datam):
+    """
+    Insert children of a specific class
+    """
+    if PAGE not in datam:
+        return
+
+    insert_pages = app.env.docfx_yaml_pages[datam[PAGE]]
+    insert_pages.append(datam)
+
+
 def build_finished(app, exception):
     """
     Output YAML on the file system.
     """
+    # Adding references for documentation pages
+    store = app.env.docfx_yaml_pages_reference
+    insert_pages = app.env.docfx_yaml_pages
+    mapping = {}
+    for _, pages in insert_pages.items():
+        for page in pages:
+            mapping[page['uid'].replace("\\", "/").replace("/", ".")] = page
+    for k, vs in store.items():
+        datam = mapping[k]
+        for v in vs:
+            if v not in datam['children']:
+                datam['children'].append(v)
+                datam['references'].append(_create_reference(mapping[v], parent=datam))
 
     def find_node_in_toc_tree(toc_yaml, to_add_node):
         for module in toc_yaml:
@@ -501,15 +605,20 @@ def build_finished(app, exception):
 
     # Order matters here, we need modules before lower level classes,
     # so that we can make sure to inject the TOC properly
-    for data_set in (app.env.docfx_yaml_modules, app.env.docfx_yaml_classes):  # noqa
+    for data_set in (app.env.docfx_yaml_modules,
+                     app.env.docfx_yaml_classes, 
+                     app.env.docfx_yaml_functions,
+                     app.env.docfx_yaml_pages):  # noqa
+
         for uid, yaml_data in iter(sorted(data_set.items())):
+
             if not uid:
                 # Skip objects without a module
                 continue
 
             references = []
 
-            # Merge module data with class data
+            # Merge module data with class data            
             for obj in yaml_data:
                 arg_params = obj.get('syntax', {}).get('parameters', [])
                 if(len(arg_params) > 0 and 'id' in arg_params[0] and arg_params[0]['id'] == 'self'):
@@ -594,13 +703,12 @@ def build_finished(app, exception):
                     convert_module_to_package_if_needed(obj)
 
                 try:
-                    if remove_inheritance_for_notfound_class:
-                        if 'inheritance' in obj:
-                            python_sdk_name = obj['uid'].split('.')[0]
-                            obj['inheritance'] = [n for n in obj['inheritance'] if not n['type'].startswith(python_sdk_name) or
-                                                  n['type'] in app.env.docfx_info_uid_types]
-                            if not obj['inheritance']:
-                                obj.pop('inheritance')
+                    if remove_inheritance_for_notfound_class and 'inheritance' in obj:
+                        python_sdk_name = obj['uid'].split('.')[0]
+                        obj['inheritance'] = [n for n in obj['inheritance'] if not n['type'].startswith(python_sdk_name) or
+                                              n['type'] in app.env.docfx_info_uid_types]
+                        if not obj['inheritance']:
+                            obj.pop('inheritance')
 
                 except NameError:
                     pass
@@ -615,22 +723,28 @@ def build_finished(app, exception):
             ensuredir(os.path.dirname(out_file))
             if app.verbosity >= 1:
                 app.info(bold('[docfx_yaml] ') + darkgreen('Outputting %s' % filename))
-
+                
             with open(out_file, 'w') as out_file_obj:
                 out_file_obj.write('### YamlMime:UniversalReference\n')
-                dump(
-                    {
-                        'items': yaml_data,
-                        'references': references,
-                        'api_name': [],  # Hack around docfx YAML
-                    },
-                    out_file_obj,
-                    default_flow_style=False
-                )
+                try:
+                    dump(
+                        {
+                            'items': yaml_data,
+                            'references': references,
+                            'api_name': [],  # Hack around docfx YAML
+                        },
+                        out_file_obj,
+                        default_flow_style=False
+                    )
+                except Exception as e:
+                    raise ValueError("Unable to dump object\n{0}".format(yaml_data)) from e
 
             file_name_set.add(filename)
 
             # Build nested TOC
+            if uid in mapping and uid != app.config.master_doc:
+                continue
+            first = uid in mapping
             if uid.count('.') >= 1:
                 parent_level = '.'.join(uid.split('.')[:-1])
                 found_node = find_node_in_toc_tree(toc_yaml, parent_level)
@@ -638,10 +752,19 @@ def build_finished(app, exception):
                 if found_node:
                     found_node.setdefault('items', []).append({'name': uid, 'uid': uid})
                 else:
-                    toc_yaml.append({'name': uid, 'uid': uid})
+                    if first:
+                        toc_yaml.insert(0, {'name': uid, 'uid': uid})
+                    else:
+                        toc_yaml.append({'name': uid, 'uid': uid})
 
             else:
-                toc_yaml.append({'name': uid, 'uid': uid})
+                if first:
+                    toc_yaml.insert(0, {'name': uid, 'uid': uid})
+                else:
+                    toc_yaml.append({'name': uid, 'uid': uid})
+
+    if len(toc_yaml) == 0:
+        raise RuntimeError("No documentation for this module.")
 
     toc_file = os.path.join(normalized_outdir, 'toc.yml')
     with open(toc_file, 'w') as writable:
@@ -660,7 +783,10 @@ def build_finished(app, exception):
     index_children = []
     index_references = []
     for item in toc_yaml:
-        index_children.append(item.get('uid', ''))
+        if item.get('type') == PAGE and item.get('uid') != app.config.master_doc:
+            continue
+        print(item)
+        index_children.append(item.get('uid', ''))        
         index_references.append({
             'uid': item.get('uid', ''),
             'name': item.get('name', ''),
@@ -710,6 +836,26 @@ def missing_reference(app, env, node, contnode):
         return make_refnode(app.builder, refdoc, reftarget, '', contnode)
 
 
+def process_toctree_nodes(app, doctree, fromdocname):
+    dest_id = []
+    for node in doctree.traverse(toctree):
+        for _, name in node['entries']:
+            dest_id.append(name.replace("/", "."))
+    if not dest_id:
+        return
+        
+    store = app.env.docfx_yaml_pages_reference
+    start_id = fromdocname.replace("/", ".")
+    if start_id not in store:
+        store[start_id] = dest_id
+    else:
+        for d in dest_id:
+            if d == start_id:
+                continue
+            if d not in store[start_id]:
+                store[start_id].append(d)
+
+
 def setup(app):
     """
     Plugin init for our Sphinx extension.
@@ -719,14 +865,15 @@ def setup(app):
 
     """
 
-    app.add_node(remarks, html = (remarks.visit_remarks, remarks.depart_remarks))
+    app.add_node(remarks,
+                 html=(remarks.visit_remarks, remarks.depart_remarks),
+                 md=(remarks.visit_remarks, remarks.depart_remarks))
     app.add_directive('remarks', RemarksDirective)
     app.add_directive('todo', TodoDirective)
-
+    
+    app.connect('doctree-resolved', process_toctree_nodes)
     app.connect('builder-inited', build_init)
     app.connect('autodoc-process-docstring', process_docstring)
     app.connect('autodoc-process-signature', process_signature)
     app.connect('build-finished', build_finished)
     app.connect('missing-reference', missing_reference)
-    app.add_config_value('docfx_yaml_output', API_ROOT, 'html')
-    app.add_config_value('folder', '', 'html')

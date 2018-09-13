@@ -21,6 +21,7 @@ def slugify(value):
 
 
 def transform_string(app, string):
+    "*unused*"
     ret = []
     for para in string.split('\n\n'):
         tmp = nodes.paragraph(para, para)

@@ -15,8 +15,10 @@ from docutils import nodes
 from sphinx.util.console import bold, red
 from sphinx.util.docfields import _is_single_paragraph
 from sphinx import addnodes
-
 from .utils import _get_desc_data
+from sphinx.util.logging import getLogger 
+
+logger = getLogger("sphinx-docfx-yaml")
 
 TITLE_MAP = {
     'Returns': 'return',
@@ -88,6 +90,7 @@ def extract_yaml(app, doctree, ignore_patterns):
     """
     Iterate over all Python domain objects and output YAML
     """
+    stop
     items = []
     modules = {}
 
@@ -122,7 +125,7 @@ def extract_yaml(app, doctree, ignore_patterns):
             uid = desc_node[0].attributes['ids'][0]
         except Exception:
             uid = '{module}.{full_name}'.format(module=module, full_name=full_name)
-            print('Non-standard id: %s' % uid)
+            logger.warning("Non-standard id: '%s'" % uid)
         name = desc_node[0].attributes['names'][0]
         source = desc_node[0].source
         try:
