@@ -11,3 +11,4 @@ _api_
 .vscode
 dist/
 build/
+.pytest_cache

@@ -324,7 +324,7 @@ def _create_datam(app, cls, module, name, _type, obj, lines=None):
     path = _update_friendly_package_name(path)
 
     # Get folder name from conf.py
-    path = app.builder.outdir
+    path = os.path.join(app.builder.outdir, path)
 
     datam = {
         'module': module,

@@ -14,7 +14,9 @@ def sphinx_build(test_dir):
     """ Use contextmanager to ensure build cleaning after testing.
     """
 
-    os.chdir('tests/{0}'.format(test_dir))
+    here = os.getcwd()
+    this = os.path.abspath(os.path.dirname(__file__))
+    os.chdir(os.path.join(this, test_dir))
 
     try:
         app = Sphinx(
@@ -28,7 +30,7 @@ def sphinx_build(test_dir):
         yield
     finally:
         shutil.rmtree('_build')
-        os.chdir('../..')
+        os.chdir(here)
 
 
 class YamlTests(unittest.TestCase):
@@ -461,3 +463,6 @@ class YamlTests(unittest.TestCase):
                             item['type'],
                             'attribute'
                         )  # Test enum value type
+
+if __name__ == "__main__":
+    unittest.main()
