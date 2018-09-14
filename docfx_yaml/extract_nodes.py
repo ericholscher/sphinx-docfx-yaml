@@ -90,7 +90,6 @@ def extract_yaml(app, doctree, ignore_patterns):
     """
     Iterate over all Python domain objects and output YAML
     """
-    stop
     items = []
     modules = {}
 
