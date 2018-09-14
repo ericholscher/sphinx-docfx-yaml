@@ -30,6 +30,7 @@ from .nodes import remarks
 from sphinx.addnodes import toctree
 from sphinx.util.logging import getLogger 
 
+
 logger = getLogger("sphinx-docfx-yaml")
 
 
@@ -73,7 +74,9 @@ def build_init(app):
     app.env.docfx_signature_funcs_methods = {}
     # This store the uid-type mapping info
     app.env.docfx_info_uid_types = {}
-    # This stores YAML object for documentation pages
+    
+    # This stores YAML object for conceptual pages
+    # Unused without sphinx-docfx-markdown.
     app.env.docfx_yaml_pages = {}
     app.env.docfx_yaml_pages_reference = {}
 
@@ -350,7 +353,7 @@ def _create_datam(app, cls, module, name, _type, obj, lines=None):
         lines = _resolve_reference_in_module_summary(lines)
         summary = app.docfx_transform_string('\n'.join(_refact_example_in_module_summary(lines)))
         if summary:
-            datam['summary'] = summary
+            datam['summary'] = summary.strip(" \n\r\r")
 
     if args or sig:
         datam['syntax'] = {}
@@ -543,7 +546,7 @@ def insert_children_on_function(app, _type, datam):
 
 def insert_page(app, _type, datam):
     """
-    Insert children of a specific class
+    Insert a page in docfx_yaml_pages.
     """
     if PAGE not in datam:
         return
@@ -552,11 +555,9 @@ def insert_page(app, _type, datam):
     insert_pages.append(datam)
 
 
-def build_finished(app, exception):
-    """
-    Output YAML on the file system.
-    """
-    # Adding references for documentation pages
+def _process_cross_references_in_conceptual_pages(app):
+    # Adding references for conceptual pages,
+    # return a mapping between uid and page content.
     store = app.env.docfx_yaml_pages_reference
     insert_pages = app.env.docfx_yaml_pages
     mapping = {}
@@ -571,7 +572,13 @@ def build_finished(app, exception):
             if v not in datam['children']:
                 datam['children'].append(v)
                 datam['references'].append(_create_reference(mapping[v], parent=datam))
+    return mapping
 
+
+def build_finished(app, exception):
+    """
+    Output YAML on the file system.
+    """
     def find_node_in_toc_tree(toc_yaml, to_add_node):
         for module in toc_yaml:
             if module['name'] == to_add_node:
@@ -599,6 +606,7 @@ def build_finished(app, exception):
                     obj['type'] = 'package'
                     return
 
+    mapping = _process_cross_references_in_conceptual_pages(app)
 
     normalized_outdir = os.path.normpath(os.path.join(
         app.builder.outdir,  # Output Directory for Builder
@@ -657,7 +665,7 @@ def build_finished(app, exception):
 
                     # Raise up summary
                     if 'summary' in obj['syntax'] and obj['syntax']['summary']:
-                        obj['summary'] = obj['syntax'].pop('summary')
+                        obj['summary'] = obj['syntax'].pop('summary').strip(" \n\r\r")
 
                     # Raise up remarks
                     if 'remarks' in obj['syntax'] and obj['syntax']['remarks']:
@@ -749,9 +757,11 @@ def build_finished(app, exception):
 
             file_name_set.add(filename)
 
-            # Build nested TOC
-            if uid in mapping and uid != app.config.master_doc:
+            if uid in mapping:
+                # conceptual page
                 continue
+                
+            # Build nested TOC
             first = uid in mapping
             if uid.count('.') >= 1:
                 parent_level = '.'.join(uid.split('.')[:-1])
@@ -787,11 +797,13 @@ def build_finished(app, exception):
             )
         )
 
-    index_file = os.path.join(normalized_outdir, 'index.yml')
+    # Writes the index.
+    index_api = 'index.yml' if len(mapping) == 0 else 'index_api.yml'
+    index_file = os.path.join(normalized_outdir, index_api)
     index_children = []
     index_references = []
     for item in toc_yaml:
-        if item.get('type') == PAGE and item.get('uid') != app.config.master_doc:
+        if item.get('type') == PAGE:
             continue
         index_children.append(item.get('uid', ''))        
         index_references.append({
@@ -817,6 +829,41 @@ def build_finished(app, exception):
             index_file_obj,
             default_flow_style=False
         )
+        
+    # Write final index in case of conceptual pages.
+    if len(mapping) > 0:
+        concept = app.config.master_doc
+        toc_yaml = [{'name': 'index_api', 'uid': 'index_api'},
+                    {'name': concept, 'uid': concept}]
+        index_file =  os.path.join(normalized_outdir, 'index.yml')
+        index_references = []
+        index_children = []
+        for item in toc_yaml:
+            index_children.append(item.get('uid', ''))        
+            index_references.append({
+                'uid': item.get('uid', ''),
+                'name': item.get('name', ''),
+                'fullname': item.get('name', ''),
+                'isExternal': False
+            })
+        with open(index_file, 'w') as index_file_obj:
+            index_file_obj.write('### YamlMime:UniversalReference\n')
+            dump(
+                {
+                    'items': [{
+                        'uid': 'project-' + app.config.project,
+                        'name': app.config.project,
+                        'langs': ['python'],
+                        'type': 'package',
+                        'summary': '',
+                        'children': index_children
+                    }],
+                    'references': index_references
+                },
+                index_file_obj,
+                default_flow_style=False
+            )
+    
 
 
 def missing_reference(app, env, node, contnode):
