@@ -21,17 +21,25 @@ from sphinx.util.console import darkgreen, bold
 from sphinx.util import ensuredir
 from sphinx.errors import ExtensionError
 from sphinx.util.nodes import make_refnode
+from sphinx.addnodes import toctree
 
 from .utils import transform_node, transform_string
 from .settings import API_ROOT
 from .monkeypatch import patch_docfields
 from .directives import RemarksDirective, TodoDirective
 from .nodes import remarks
-from sphinx.addnodes import toctree
-from sphinx.util.logging import getLogger 
 
-
-logger = getLogger("sphinx-docfx-yaml")
+try:
+    from sphinx.util.logging import getLogger
+    logger = getLogger("sphinx-docfx-yaml")
+except ImportError:
+    # probably an older version of sphinx
+    class logger15:
+        def warning(*args):
+            print('[warning]', *args)
+        def info(*args):
+            print('[info]', *args)
+    logger = logger15()
 
 
 class Bcolors:
@@ -762,7 +770,6 @@ def build_finished(app, exception):
                 continue
                 
             # Build nested TOC
-            first = uid in mapping
             if uid.count('.') >= 1:
                 parent_level = '.'.join(uid.split('.')[:-1])
                 found_node = find_node_in_toc_tree(toc_yaml, parent_level)
@@ -770,16 +777,10 @@ def build_finished(app, exception):
                 if found_node:
                     found_node.setdefault('items', []).append({'name': uid, 'uid': uid})
                 else:
-                    if first:
-                        toc_yaml.insert(0, {'name': uid, 'uid': uid})
-                    else:
-                        toc_yaml.append({'name': uid, 'uid': uid})
+                    toc_yaml.append({'name': uid, 'uid': uid})
 
             else:
-                if first:
-                    toc_yaml.insert(0, {'name': uid, 'uid': uid})
-                else:
-                    toc_yaml.append({'name': uid, 'uid': uid})
+                toc_yaml.append({'name': uid, 'uid': uid})
 
     if len(toc_yaml) == 0:
         raise RuntimeError("No documentation for this module.")
@@ -798,7 +799,7 @@ def build_finished(app, exception):
         )
 
     # Writes the index.
-    index_api = 'index.yml' if len(mapping) == 0 else 'index_api.yml'
+    index_api = 'index.yml'
     index_file = os.path.join(normalized_outdir, index_api)
     index_children = []
     index_references = []
@@ -829,41 +830,6 @@ def build_finished(app, exception):
             index_file_obj,
             default_flow_style=False
         )
-        
-    # Write final index in case of conceptual pages.
-    if len(mapping) > 0:
-        concept = app.config.master_doc
-        toc_yaml = [{'name': 'index_api', 'uid': 'index_api'},
-                    {'name': concept, 'uid': concept}]
-        index_file =  os.path.join(normalized_outdir, 'index.yml')
-        index_references = []
-        index_children = []
-        for item in toc_yaml:
-            index_children.append(item.get('uid', ''))        
-            index_references.append({
-                'uid': item.get('uid', ''),
-                'name': item.get('name', ''),
-                'fullname': item.get('name', ''),
-                'isExternal': False
-            })
-        with open(index_file, 'w') as index_file_obj:
-            index_file_obj.write('### YamlMime:UniversalReference\n')
-            dump(
-                {
-                    'items': [{
-                        'uid': 'project-' + app.config.project,
-                        'name': app.config.project,
-                        'langs': ['python'],
-                        'type': 'package',
-                        'summary': '',
-                        'children': index_children
-                    }],
-                    'references': index_references
-                },
-                index_file_obj,
-                default_flow_style=False
-            )
-    
 
 
 def missing_reference(app, env, node, contnode):
