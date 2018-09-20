@@ -57,7 +57,6 @@ METHOD = 'method'
 FUNCTION = 'function'
 MODULE = 'module'
 CLASS = 'class'
-PAGE = 'page'
 EXCEPTION = 'exception'
 ATTRIBUTE = 'attribute'
 REFMETHOD = 'meth'
@@ -83,11 +82,6 @@ def build_init(app):
     # This store the uid-type mapping info
     app.env.docfx_info_uid_types = {}
     
-    # This stores YAML object for conceptual pages
-    # Unused without sphinx-docfx-markdown.
-    app.env.docfx_yaml_pages = {}
-    app.env.docfx_yaml_pages_reference = {}
-
     remote = getoutput('git remote -v')
 
     try:
@@ -552,37 +546,6 @@ def insert_children_on_function(app, _type, datam):
     insert_functions.append(datam)
 
 
-def insert_page(app, _type, datam):
-    """
-    Insert a page in docfx_yaml_pages.
-    """
-    if PAGE not in datam:
-        return
-
-    insert_pages = app.env.docfx_yaml_pages[datam[PAGE]]
-    insert_pages.append(datam)
-
-
-def _process_cross_references_in_conceptual_pages(app):
-    # Adding references for conceptual pages,
-    # return a mapping between uid and page content.
-    store = app.env.docfx_yaml_pages_reference
-    insert_pages = app.env.docfx_yaml_pages
-    mapping = {}
-    for _, pages in insert_pages.items():
-        for page in pages:
-            mapping[page['uid'].replace("\\", "/").replace("/", ".")] = page
-    for k, vs in store.items():
-        if k not in mapping:
-            continue
-        datam = mapping[k]
-        for v in vs:
-            if v not in datam['children']:
-                datam['children'].append(v)
-                datam['references'].append(_create_reference(mapping[v], parent=datam))
-    return mapping
-
-
 def build_finished(app, exception):
     """
     Output YAML on the file system.
@@ -614,8 +577,6 @@ def build_finished(app, exception):
                     obj['type'] = 'package'
                     return
 
-    mapping = _process_cross_references_in_conceptual_pages(app)
-
     normalized_outdir = os.path.normpath(os.path.join(
         app.builder.outdir,  # Output Directory for Builder
         API_ROOT,
@@ -631,8 +592,7 @@ def build_finished(app, exception):
     # so that we can make sure to inject the TOC properly
     for data_set in (app.env.docfx_yaml_modules,
                      app.env.docfx_yaml_classes, 
-                     app.env.docfx_yaml_functions,
-                     app.env.docfx_yaml_pages):  # noqa
+                     app.env.docfx_yaml_functions):  # noqa
 
         for uid, yaml_data in iter(sorted(data_set.items())):
 
@@ -765,10 +725,6 @@ def build_finished(app, exception):
 
             file_name_set.add(filename)
 
-            if uid in mapping:
-                # conceptual page
-                continue
-                
             # Build nested TOC
             if uid.count('.') >= 1:
                 parent_level = '.'.join(uid.split('.')[:-1])
@@ -804,8 +760,6 @@ def build_finished(app, exception):
     index_children = []
     index_references = []
     for item in toc_yaml:
-        if item.get('type') == PAGE:
-            continue
         index_children.append(item.get('uid', ''))        
         index_references.append({
             'uid': item.get('uid', ''),
@@ -863,17 +817,6 @@ def process_toctree_nodes(app, doctree, fromdocname):
             dest_id.append(name.replace("/", "."))
     if not dest_id:
         return
-        
-    store = app.env.docfx_yaml_pages_reference
-    start_id = fromdocname.replace("/", ".")
-    if start_id not in store:
-        store[start_id] = dest_id
-    else:
-        for d in dest_id:
-            if d == start_id:
-                continue
-            if d not in store[start_id]:
-                store[start_id].append(d)
 
 
 def setup(app):
