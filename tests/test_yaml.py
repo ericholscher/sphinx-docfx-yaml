@@ -136,8 +136,8 @@ class YamlTests(unittest.TestCase):
 
                 self.assertEqual(
                     data['items'][0]['summary'].replace('\n', ' ').strip(),
-                    'Docstring of internal class @format.rst.foo.FooException.InternalFoo. '
-                    'This class is an internal class of @format.rst.foo.FooException.'
+                    'Docstring of internal class <xref:format.rst.foo.FooException.InternalFoo>. '
+                    'This class is an internal class of <xref:format.rst.foo.FooException>.'
                 )
 
             with open(os.path.join(self.build_path, self.yaml_files['module_files']['numpy'][0])) as f:
@@ -146,7 +146,7 @@ class YamlTests(unittest.TestCase):
 
                 self.assertEqual(
                     data['items'][0]['summary'].strip(),
-                    'Docstring of @format.numpy.foo module.'
+                    'Docstring of <xref:format.numpy.foo> module.'
                 )
 
             with open(os.path.join(self.build_path, self.yaml_files['package_files']['format'][1])) as f:
@@ -155,7 +155,7 @@ class YamlTests(unittest.TestCase):
 
                 self.assertEqual(
                     data['items'][0]['summary'].strip(),
-                    'Docstring of package @format.rst.'
+                    'Docstring of package <xref:format.rst>.'
                 )
 
     def test_references(self):
@@ -318,7 +318,7 @@ class YamlTests(unittest.TestCase):
                     if item['uid'] == 'format.google.foo.Foo.method_seealso':
                         self.assertEqual(
                             item['seealsoContent'].strip(),
-                            'See also: Seealso contents. Multi-line should be supported.'
+                            'Seealso contents.\n  Multi-line should be supported.'
                         )
 
     def test_numpy_format(self):
@@ -334,7 +334,7 @@ class YamlTests(unittest.TestCase):
                     if item['uid'] == 'format.numpy.foo.Foo.method_seealso':
                         self.assertEqual(
                             re.sub(r'\s+', ' ', item['seealsoContent']).strip(),
-                            'See also: @format.numpy.foo.Foo.mathod_note See also target.'
+                            '<xref:format.numpy.foo.Foo.mathod_note> See also target.'
                         )  # Test see also centent from numpy format.
 
     def test_toc(self):
@@ -437,7 +437,7 @@ class YamlTests(unittest.TestCase):
                         )  # Test seealso field existance
 
                         self.assertIn(
-                            'Seealso contents. Multi-line should be supported.',
+                            'Seealso contents.\n  Multi-line should be supported.',
                             item['seealsoContent']
                         )  # Test seealso content
 
