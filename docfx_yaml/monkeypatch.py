@@ -26,14 +26,14 @@ def _get_desc_data(node):
         module = node[0].attributes['module']
         full_name = node[0].attributes['fullname'].split('.')[-1]
     except KeyError as e:
-        logger.warning("[docfx_yaml] There maybe some syntax error in docstring near: '{}'".format(node.astext()))
+        logger.warning("[docfx] There maybe some syntax error in docstring near: '{}'".format(node.astext()))
         raise e
 
     try:
         uid = node[0].attributes['ids'][0]
     except Exception:
         uid = '{module}.{full_name}'.format(module=module, full_name=full_name)
-        logger.warning("Non-standard id: '%s'" % uid)
+        logger.warning("[docfx] Non-standard id: '%s'" % uid)
     return full_name, uid
 
 

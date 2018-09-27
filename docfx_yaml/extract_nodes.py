@@ -124,7 +124,7 @@ def extract_yaml(app, doctree, ignore_patterns):
             uid = desc_node[0].attributes['ids'][0]
         except Exception:
             uid = '{module}.{full_name}'.format(module=module, full_name=full_name)
-            logger.warning("Non-standard id: '%s'" % uid)
+            logger.warning("[docfx] Non-standard id: '%s'" % uid)
         name = desc_node[0].attributes['names'][0]
         source = desc_node[0].source
         try:
