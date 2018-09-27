@@ -710,7 +710,7 @@ def build_finished(app, exception):
             out_file = os.path.join(normalized_outdir, '%s.yml' % filename)
             ensuredir(os.path.dirname(out_file))
             if app.verbosity >= 1:
-                app.info(bold('[docfx_yaml] ') + darkgreen('Outputting %s' % filename))
+                app.info(bold('[docfx] ') + darkgreen('Outputting %s' % filename))
                 
             with open(out_file, 'w') as out_file_obj:
                 out_file_obj.write('### YamlMime:UniversalReference\n')

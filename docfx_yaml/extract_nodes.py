@@ -95,7 +95,7 @@ def extract_yaml(app, doctree, ignore_patterns):
 
     for desc_node in doctree.traverse(addnodes.desc):
         if desc_node.attributes['domain'] != 'py':
-            app.info(bold('[docfx_yaml] ') + red(
+            app.info(bold('[docfx] ') + red(
                 'Skipping Domain Object (%s)' % desc_node.attributes['domain']
             ))
             continue
@@ -103,7 +103,7 @@ def extract_yaml(app, doctree, ignore_patterns):
         module = desc_node[0].attributes['module']
 
         if not module:
-            app.info(bold('[docfx_yaml] ') + red(
+            app.info(bold('[docfx] ') + red(
                 'Skipping object with no module'
             ))
             continue
